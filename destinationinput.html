@@ -6,7 +6,7 @@
     <style>
       /*map size, map is a div with id = map*/
       #map {
-        height: 600px;  /* The height is 400 pixels */
+        height: 100%;  /* The height is 400 pixels */
         width: 800px;  /* The width is the width of the web page, % shows the percentage*/
        }
        html, body {
@@ -90,8 +90,11 @@
   </head>
   <body>
     <input id="pac-input" class="controls" type="text" placeholder="Search Box">
+    <div id= "submitLocation" >
+    </div>
     <div id="map"></div>
     <div id="current"></div>
+    <script> </script>
     <script>
 
     var latLngList = [];
@@ -103,6 +106,7 @@
           var NEW_YORK_BOUNDS = {north: 40.85, south: 40.45, west: -74.3, east: -73.5,};
 
           var NewYork = {lat: 40.65, lng: -73.7};
+
 
 
           // google.maps.Map construct a new google map object, A.K.A the map, centered at Uluru
@@ -121,82 +125,93 @@
 
           map.addListener('click', function(e) {placeMarkerAndPanTo(e.latLng, map);});
 
-    //       var btn = document.createElement("BUTTON");   // Create a <button> element
-		  // btn.innerHTML = "conform";                   // Insert text
-		  // document.body.appendChild(btn);
           var input = document.getElementById('pac-input');
-        var searchBox = new google.maps.places.SearchBox(input);
+          var searchBox = new google.maps.places.SearchBox(input);
         
+          // send out messages after click the submit button, the submit button is added in div with id submitLocation   
+          var submit = document.createElement("BUTTON");
+          submit.innerHTML = "submit";
+          document.getElementById("submitLocation").appendChild(submit);
+          // click the button and call sendList Fuction
+          submit.onclick = sendList;
 
-        // Bias the SearchBox results towards current map's viewport.
-        map.addListener('bounds_changed', function() {
-          searchBox.setBounds(map.getBounds());
-        });
+                // Bias the SearchBox results towards current map's viewport.
+        // map.addListener('bounds_changed', function() {
+        //   searchBox.setBounds(map.getBounds());
+        // });
 
-        var markers = [];
-        // Listen for the event fired when the user selects a prediction and retrieve
-        // more details for that place.
-        searchBox.addListener('places_changed', function() {
-          var places = searchBox.getPlaces();
+          // Listen for the event fired when the user selects a prediction and retrieve
+          // more details for that place.
+          searchBox.addListener('places_changed', function() 
+          {
+            var places = searchBox.getPlaces();
 
-          if (places.length == 0) {
-            return;
-          }
-
-          // Clear out the old markers.
-          markers.forEach(function(marker) {
-            marker.setMap(null);
-          });
-          markers = [];
-
-          // For each place, get the icon, name and location.
-          var bounds = new google.maps.LatLngBounds();
-          places.forEach(function(place) {
-            if (!place.geometry) {
-              console.log("Returned place contains no geometry");
+            // if the input is empty, return the function
+            if (places.length == 0) 
               return;
-            }
-            var icon = {
-              url: place.icon,
-              size: new google.maps.Size(71, 71),
-              origin: new google.maps.Point(0, 0),
-              anchor: new google.maps.Point(17, 34),
-              scaledSize: new google.maps.Size(25, 25)
-            };
+            
+            // For each place, get the icon, name and location.
+            places.forEach(function(place) 
+            {
+              if (!place.geometry) 
+              {
+                console.log("Returned place contains no geometry");
+                return;
+              }
+              // Create a marker for each place.
+              var marker = new google.maps.Marker({map: map, position: place.geometry.location});
 
-            // Create a marker for each place.
-            markers.push(new google.maps.Marker({
-              map: map,
-              //icon: icon,
-              title: place.name,
-              position: place.geometry.location
-            }));
+              // add the location of search box into the list
+              latLngList.push({lat: place.geometry.location.lat(),lng: place.geometry.location.lng()});
 
-            if (place.geometry.viewport) {
-              // Only geocodes have viewport.
-              bounds.union(place.geometry.viewport);
-            } else {
-              bounds.extend(place.geometry.location);
-            }
+              console.log(latLngList);
+
+
+              // remove marker
+              marker.addListener("click",function(e)
+              {
+
+                // delete the marker
+                marker.setMap(null);
+
+                // find the index of the element corresponding to the deleted marker
+                var index = latLngList.findIndex(function(element){
+                  if((element["lat"] == e.latLng.lat())&&(element["lng"] == e.latLng.lng()))
+                    return  element;
+                })
+
+                // delete the corresponding element in array
+                latLngList.splice(index,1);
+                // current array output
+                console.log(latLngList);
+
+              })
           });
-          map.fitBounds(bounds);
         });
       
 
           function placeMarkerAndPanTo(latLng, map) 
           {
           	latLngList.push({lat: latLng.lat(),lng: latLng.lng()});
+          	////////////////////////////////////////////
+          	// function changeForm(latLng)
+          	// {
+
+          	// }
+          	// var input = document.createElement("input");
+           //  input.type = "text";
+           //  input.name = "locations";
+           //  input.value = latLng.lat()+ "," + latLng.lng();
+           //  document.getElementById("form").appendChild(input);
+          	// document.getElementById("form").innerHTML = '<input type="text" name="' + latLng.lat()+ ',' + latLng.lng() + '">';
+
+          	////////////////////////////////////////////
             // The marker, positioned at e.latLng
-            var marker = new google.maps.Marker({position: latLng, map: map});
-            
+            var marker = new google.maps.Marker({position: latLng, map: map});   
             // current array output
             console.log(latLngList);
 
-
-
-
-
-            // remove the markers
+            // remove the marker
             marker.addListener("click",function(e)
             {
 
@@ -214,14 +229,34 @@
             	// current array output
             	console.log(latLngList);
             	
-
             	// delNode = document.getElementById('div'+(index+1));
             	// delNode.parentNode.removeChild(delNode);
 
             })
           }  
+        
+      }
+
+      // send msg, encode current latLngList into a json file and then send it to the server
+      function sendList() {
+        const Http = new XMLHttpRequest();
+
+        // server address
+        const url='http://localhost:3000/send_location';
+        Http.open("POST", url);
+        latLngList2 = JSON.parse(JSON.stringify(latLngList));
+        console.log(latLngList2);
+        Http.setRequestHeader("Content-Type", "application/json");
+
+        // send msg
+        Http.send(JSON.stringify(latLngList));
+        
+        Http.onreadystatechange = (e) => {
+            if (Http.readyState == 4 && Http.status == 200)
+                console.log(Http.responseText)
         }
-      
+      }
+
       // in the script the initMap function is called, note that the callback = initMap
       // async defer: page continue to render while the api is loading
     </script>
